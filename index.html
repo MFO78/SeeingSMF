@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSOC Coupling Efficiency & AO Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .telemetry-value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-300 min-h-screen p-4 md:p-6 text-sm antialiased">
+
+    <div class="max-w-5xl mx-auto flex flex-col h-full">
+        
+        <!-- Header & Navigation -->
+        <header class="mb-6 border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-100 tracking-tight">FSOC Telemetry Console</h1>
+                <p class="text-slate-500 mt-1 text-xs uppercase tracking-wider">Coupling Efficiency & AO Analytics</p>
+            </div>
+            
+            <nav class="flex space-x-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white shadow-sm focus:outline-none">
+                    Dashboard
+                </button>
+                <button onclick="switchTab('reference')" id="btn-reference" class="px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-slate-200 hover:bg-slate-800 focus:outline-none">
+                    Reference Model
+                </button>
+            </nav>
+        </header>
+
+        <!-- Main Dashboard View -->
+        <div id="view-dashboard" class="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-fade-in">
+            
+            <!-- Input Parameters Card -->
+            <div class="lg:col-span-6 bg-slate-900 rounded-xl border border-slate-800 p-5 shadow-lg">
+                <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider mb-4 flex items-center border-b border-slate-800 pb-2">
+                    <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    System Parameters
+                </h2>
+                
+                <div class="space-y-3">
+                    <!-- Wavelength -->
+                    <div class="grid grid-cols-3 gap-3 items-center">
+                        <label for="wavelength" class="text-slate-400 font-medium col-span-1">Wavelength (λ)</label>
+                        <div class="col-span-2 flex gap-2">
+                            <input type="number" id="wavelength" value="1550" step="1" class="w-full bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
+                            <select id="wavelength-unit" class="bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-2 py-1.5 focus:border-blue-500 focus:outline-none">
+                                <option value="1e-9">nm</option>
+                                <option value="1e-6">μm</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Atmospheric Condition -->
+                    <div class="grid grid-cols-3 gap-3 items-center">
+                        <label for="input-type" class="text-slate-400 font-medium col-span-1">Atmosphere</label>
+                        <div class="col-span-2 flex gap-2">
+                            <select id="input-type" class="w-1/2 bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-2 py-1.5 focus:border-blue-500 focus:outline-none">
+                                <option value="seeing">Seeing (arcsec)</option>
+                                <option value="r0">Fried r₀ (cm)</option>
+                            </select>
+                            <input type="number" id="input-value" value="2.0" step="0.1" class="w-1/2 bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
+                        </div>
+                    </div>
+
+                    <!-- Telescope Aperture -->
+                    <div class="grid grid-cols-3 gap-3 items-center">
+                        <label for="aperture" class="text-slate-400 font-medium col-span-1">Aperture (D)</label>
+                        <div class="col-span-2 flex items-center gap-2">
+                            <input type="number" id="aperture" value="30" step="1" class="w-full bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
+                            <span class="text-slate-500 font-medium w-6">cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Zernike Modes -->
+                    <div class="grid grid-cols-3 gap-3 items-center">
+                        <label for="zernike" class="text-slate-400 font-medium col-span-1">Corrected Modes (J)</label>
+                        <div class="col-span-2">
+                            <input type="number" id="zernike" value="3" min="1" max="65" step="1" class="w-full bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
+                        </div>
+                    </div>
+
+                    <!-- Max Theoretical Coupling -->
+                    <div class="grid grid-cols-3 gap-3 items-center">
+                        <label for="eta-max" class="text-slate-400 font-medium col-span-1">Max Coupling (η_max)</label>
+                        <div class="col-span-2 flex items-center gap-2">
+                            <input type="number" id="eta-max" value="80" min="1" max="100" step="1" class="w-full bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
+                            <span class="text-slate-500 font-medium w-6">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Telemetry Card -->
+            <div class="lg:col-span-6 bg-slate-900 rounded-xl border border-slate-800 p-5 shadow-lg flex flex-col">
+                <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider mb-4 flex items-center border-b border-slate-800 pb-2">
+                    <svg class="w-4 h-4 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Live Telemetry
+                </h2>
+                
+                <div class="space-y-3 flex-grow">
+                    <!-- Primary Result Highlight -->
+                    <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
+                        <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Coupling Efficiency Estimate</span>
+                        <div id="coupling-result" class="text-3xl font-bold text-emerald-400 telemetry-value">--.-%</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
+                            <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Fried (r₀)</span>
+                            <div id="r0-result" class="text-base text-slate-200 telemetry-value">-- cm</div>
+                        </div>
+                        <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
+                            <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Seeing</span>
+                            <div id="seeing-result" class="text-base text-slate-200 telemetry-value">-- arcsec</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
+                        <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Turbulence Strength (D/r₀)</span>
+                        <div id="dr0-result" class="text-lg text-slate-200 telemetry-value">--</div>
+                    </div>
+
+                    <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
+                        <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">1-Axis Tip/Tilt RMS</span>
+                        <div id="tiptilt-result" class="text-sm text-cyan-400 telemetry-value tracking-tight">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documentation View (Hidden by default) -->
+        <div id="view-reference" class="hidden bg-slate-900 rounded-xl border border-slate-800 p-6 shadow-lg animate-fade-in">
+            <h3 class="text-base font-bold text-slate-200 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">Analytical Model Reference</h3>
+            <div class="text-slate-400 space-y-4 leading-relaxed max-w-3xl">
+                <p>This engineering tool analyses atmospheric turbulence effects and adaptive optics performance for free-space optical communications (FSOC). The core logic dynamically converts between seeing conditions and the Fried parameter (r₀), computing the exact D/r₀ ratio for a specified telescope aperture.</p>
+                
+                <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 my-4 text-emerald-500 font-mono text-xs overflow-x-auto shadow-inner">
+                    η ≈ η_max * exp(-½ C_J (D/r₀)^(5/3))<br><br>
+                    α = √(0.18 · (D/r₀)^(5/3) · (λ/D)²)
+                </div>
+
+                <p><strong>Literature Validation:</strong> Coupling efficiency derivations strictly align with theoretical and experimental data from Wang et al. (2018), <em>"Performance analysis of an adaptive optics system for free-space optics communication through atmospheric turbulence"</em> (Scientific Reports).</p>
+                
+                <p>The 1-axis tip-tilt RMS angular deviation (α) formulation stems from Campaci's thesis, <em>"Tip-Tilt correction with Fast Refractive Modulator in a telescope"</em> (University of Padova).</p>
+
+                <h4 class="font-semibold text-slate-300 mt-6 pt-4 border-t border-slate-800">Key Parameters:</h4>
+                <ul class="list-disc pl-5 space-y-2 mt-2">
+                    <li><strong>Wavelength (λ)</strong>: Typically 1550nm for European telecom standards, 808nm for wavefront sensing.</li>
+                    <li><strong>Seeing</strong>: Atmospheric turbulence measured in arcseconds.</li>
+                    <li><strong>r₀</strong>: Fried parameter defining the coherence length of atmospheric turbulence.</li>
+                    <li><strong>D</strong>: Telescope aperture diameter.</li>
+                    <li><strong>J</strong>: Quantity of corrected Zernike polynomials.</li>
+                    <li><strong>η_max</strong>: Maximum coupling efficiency (accounts for telescope central obscuration and fibre NA limits).</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Track current unit state to prevent destructive toggling
+        let isSeeingState = true;
+
+        // Tab Navigation Logic
+        function switchTab(tabId) {
+            // Hide all views
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-reference').classList.add('hidden');
+            
+            // Reset button styles
+            const btnDash = document.getElementById('btn-dashboard');
+            const btnRef = document.getElementById('btn-reference');
+            
+            btnDash.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-slate-200 hover:bg-slate-800 focus:outline-none";
+            btnRef.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-slate-200 hover:bg-slate-800 focus:outline-none";
+            
+            // Show active view and style active button
+            if (tabId === 'dashboard') {
+                document.getElementById('view-dashboard').classList.remove('hidden');
+                btnDash.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white shadow-sm focus:outline-none";
+            } else {
+                document.getElementById('view-reference').classList.remove('hidden');
+                btnRef.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white shadow-sm focus:outline-none";
+            }
+        }
+
+        // Calculation Logic
+        function attachRealTimeListeners() {
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                if (input.id === 'input-type') {
+                    input.addEventListener('change', handleUnitToggle);
+                } else {
+                    input.addEventListener('input', calculate);
+                }
+            });
+            // Initial calculation on load
+            calculate();
+        }
+
+        function handleUnitToggle() {
+            const newType = document.getElementById('input-type').value;
+            const valueInput = document.getElementById('input-value');
+            let currentVal = parseFloat(valueInput.value);
+            
+            if (isNaN(currentVal)) return;
+
+            const wavelength = parseFloat(document.getElementById('wavelength').value) * parseFloat(document.getElementById('wavelength-unit').value);
+
+            // Convert underlying numerical value to match the newly selected physical unit
+            if (newType === 'r0' && isSeeingState) {
+                // Seeing (arcsec) -> r0 (cm)
+                let r0 = (0.976 * wavelength / (currentVal * Math.PI / (180 * 3600))) * 100;
+                valueInput.value = r0.toFixed(2);
+                isSeeingState = false;
+            } else if (newType === 'seeing' && !isSeeingState) {
+                // r0 (cm) -> Seeing (arcsec)
+                let seeing = (0.976 * wavelength / (currentVal / 100)) * (180 * 3600) / Math.PI;
+                valueInput.value = seeing.toFixed(2);
+                isSeeingState = true;
+            }
+            
+            calculate();
+        }
+
+        function calculate() {
+            const wavelength = parseFloat(document.getElementById('wavelength').value) * parseFloat(document.getElementById('wavelength-unit').value);
+            const inputValue = parseFloat(document.getElementById('input-value').value);
+            const inputType = document.getElementById('input-type').value;
+            const aperture = parseFloat(document.getElementById('aperture').value);
+            const zernike = parseFloat(document.getElementById('zernike').value);
+            const etaMaxPercentage = parseFloat(document.getElementById('eta-max').value);
+            
+            if (isNaN(wavelength) || isNaN(inputValue) || isNaN(aperture) || isNaN(zernike) || isNaN(etaMaxPercentage)) {
+                return; // Prevent NaN rendering during typing
+            }
+
+            let r0, seeing, dr0;
+
+            // Determine r0 and seeing based on chosen input
+            if (inputType === 'seeing') {
+                seeing = inputValue;
+                r0 = (0.976 * wavelength / (seeing * Math.PI / (180 * 3600))) * 100; // cm
+            } else {
+                r0 = inputValue;
+                seeing = (0.976 * wavelength / (r0 / 100)) * (180 * 3600) / Math.PI; // arcsec
+            }
+
+            dr0 = aperture / r0;
+            
+            // 1-Axis Tip/Tilt RMS calculations
+            const tiptiltRad = Math.sqrt(0.18 * Math.pow(dr0, 5/3) * Math.pow(wavelength / (aperture / 100), 2));
+            const tiptiltmRad = tiptiltRad * 1000;
+            const tiptiltDeg = tiptiltRad * (180 / Math.PI);
+            const tiptiltmDeg = tiptiltDeg * 1000;
+            const tiptiltArcsec = tiptiltDeg * 3600;
+
+            // Coupling efficiency calculation
+            const Cj = 0.3 / Math.pow(zernike, 0.7);
+            const eta_max = etaMaxPercentage / 100; 
+            const coupling = eta_max * Math.exp(-0.5 * Cj * Math.pow(dr0, 5/3));
+
+            // DOM Updates - Formatting directly within the spans
+            document.getElementById('r0-result').textContent = `${r0.toFixed(2)} cm`;
+            document.getElementById('seeing-result').textContent = `${seeing.toFixed(2)} arcsec`;
+            document.getElementById('dr0-result').textContent = `${dr0.toFixed(2)}`;
+            document.getElementById('tiptilt-result').textContent = `${tiptiltArcsec.toFixed(2)} arcsec (${tiptiltmDeg.toFixed(3)} mdeg, ${tiptiltmRad.toFixed(3)} mrad)`;
+            document.getElementById('coupling-result').textContent = `${(coupling * 100).toFixed(1)}%`;
+        }
+
+        // Initialize application logic
+        window.onload = attachRealTimeListeners;
+    </script>
+</body>
+</html>
+
+
