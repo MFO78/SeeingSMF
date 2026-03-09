@@ -65,7 +65,7 @@
                         <label for="input-type" class="text-slate-400 font-medium col-span-1">Atmosphere</label>
                         <div class="col-span-2 flex gap-2">
                             <select id="input-type" class="w-1/2 bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-2 py-1.5 focus:border-blue-500 focus:outline-none">
-                                <option value="seeing">Seeing (arcsec)</option>
+                                <option value="seeing">Seeing @ 500nm (arcsec)</option>
                                 <option value="r0">Fried r₀ (cm)</option>
                             </select>
                             <input type="number" id="input-value" value="2.0" step="0.1" class="w-1/2 bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
@@ -120,7 +120,7 @@
                             <div id="r0-result" class="text-base text-slate-200 telemetry-value">-- cm</div>
                         </div>
                         <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
-                            <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Seeing</span>
+                            <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Seeing (500nm)</span>
                             <div id="seeing-result" class="text-base text-slate-200 telemetry-value">-- arcsec</div>
                         </div>
                     </div>
@@ -146,18 +146,18 @@
                 
                 <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 my-4 text-emerald-500 font-mono text-xs overflow-x-auto shadow-inner">
                     η ≈ η_max * exp(-½ C_J (D/r₀)^(5/3))<br><br>
-                    α = √(0.18 · (D/r₀)^(5/3) · (λ/D)²)
+                    α = 0.455 · (D/r₀)^(5/6) · (λ/D)
                 </div>
 
                 <p><strong>Literature Validation:</strong> Coupling efficiency derivations strictly align with theoretical and experimental data from Wang et al. (2018), <em>"Performance analysis of an adaptive optics system for free-space optics communication through atmospheric turbulence"</em> (Scientific Reports).</p>
                 
-                <p>The 1-axis tip-tilt RMS angular deviation (α) formulation stems from Campaci's thesis, <em>"Tip-Tilt correction with Fast Refractive Modulator in a telescope"</em> (University of Padova).</p>
+                <p>The 1-axis tip-tilt RMS angular deviation (α) formulation utilises the standard G-tilt variance coefficient for centroid tracking through Kolmogorov turbulence.</p>
 
                 <h4 class="font-semibold text-slate-300 mt-6 pt-4 border-t border-slate-800">Key Parameters:</h4>
                 <ul class="list-disc pl-5 space-y-2 mt-2">
                     <li><strong>Wavelength (λ)</strong>: Typically 1550nm for European telecom standards, 808nm for wavefront sensing.</li>
-                    <li><strong>Seeing</strong>: Atmospheric turbulence measured in arcseconds.</li>
-                    <li><strong>r₀</strong>: Fried parameter defining the coherence length of atmospheric turbulence.</li>
+                    <li><strong>Seeing</strong>: Atmospheric turbulence measured in arcseconds, strictly anchored to a <strong>500 nm</strong> reference wavelength.</li>
+                    <li><strong>r₀</strong>: Fried parameter defining the coherence length, calculated dynamically at the operational wavelength (λ) using standard <em>λ^(6/5)</em> scaling.</li>
                     <li><strong>D</strong>: Telescope aperture diameter.</li>
                     <li><strong>J</strong>: Quantity of corrected Zernike polynomials.</li>
                     <li><strong>η_max</strong>: Maximum coupling efficiency (accounts for telescope central obscuration and fibre NA limits).</li>
@@ -196,10 +196,17 @@
 
         // Calculation Logic
         function attachRealTimeListeners() {
+            // Initialise state dynamically to prevent F5 refresh desync if browser caches select inputs
+            const typeSelect = document.getElementById('input-type');
+            isSeeingState = (typeSelect.value === 'seeing');
+
             const inputs = document.querySelectorAll('input, select');
             inputs.forEach(input => {
                 if (input.id === 'input-type') {
                     input.addEventListener('change', handleUnitToggle);
+                } else if (input.tagName === 'SELECT') {
+                    // Use 'change' instead of 'input' for robust cross-browser select handling
+                    input.addEventListener('change', calculate);
                 } else {
                     input.addEventListener('input', calculate);
                 }
@@ -213,20 +220,26 @@
             const valueInput = document.getElementById('input-value');
             let currentVal = parseFloat(valueInput.value);
             
-            if (isNaN(currentVal)) return;
+            // Guard against NaN or mathematically invalid zero/negative turbulence limits
+            if (isNaN(currentVal) || currentVal <= 0) return;
 
             const wavelength = parseFloat(document.getElementById('wavelength').value) * parseFloat(document.getElementById('wavelength-unit').value);
+            const refWavelength = 500e-9; // Standard reference wavelength for seeing
 
             // Convert underlying numerical value to match the newly selected physical unit
             if (newType === 'r0' && isSeeingState) {
-                // Seeing (arcsec) -> r0 (cm)
-                let r0 = (0.976 * wavelength / (currentVal * Math.PI / (180 * 3600))) * 100;
-                valueInput.value = r0.toFixed(2);
+                // Seeing @ 500nm (arcsec) -> r0 at operational wavelength (cm)
+                const seeing500Rad = currentVal * Math.PI / (180 * 3600);
+                const r0_500 = 0.976 * refWavelength / seeing500Rad;
+                const r0_op = r0_500 * Math.pow(wavelength / refWavelength, 6 / 5) * 100;
+                valueInput.value = r0_op.toFixed(2);
                 isSeeingState = false;
             } else if (newType === 'seeing' && !isSeeingState) {
-                // r0 (cm) -> Seeing (arcsec)
-                let seeing = (0.976 * wavelength / (currentVal / 100)) * (180 * 3600) / Math.PI;
-                valueInput.value = seeing.toFixed(2);
+                // r0 at operational wavelength (cm) -> Seeing @ 500nm (arcsec)
+                const r0_m = currentVal / 100;
+                const r0_500 = r0_m / Math.pow(wavelength / refWavelength, 6 / 5);
+                const seeing500 = (0.976 * refWavelength / r0_500) * (180 * 3600) / Math.PI;
+                valueInput.value = seeing500.toFixed(2);
                 isSeeingState = true;
             }
             
@@ -241,25 +254,31 @@
             const zernike = parseFloat(document.getElementById('zernike').value);
             const etaMaxPercentage = parseFloat(document.getElementById('eta-max').value);
             
-            if (isNaN(wavelength) || isNaN(inputValue) || isNaN(aperture) || isNaN(zernike) || isNaN(etaMaxPercentage)) {
-                return; // Prevent NaN rendering during typing
+            // Prevent NaN rendering during typing or field clearing
+            if (isNaN(wavelength) || isNaN(inputValue) || inputValue <= 0 || isNaN(aperture) || isNaN(zernike) || isNaN(etaMaxPercentage)) {
+                return; 
             }
 
             let r0, seeing, dr0;
+            const refWavelength = 500e-9; // Standard reference wavelength
 
-            // Determine r0 and seeing based on chosen input
+            // Determine r0 (operational) and seeing (500nm) based on chosen input
             if (inputType === 'seeing') {
-                seeing = inputValue;
-                r0 = (0.976 * wavelength / (seeing * Math.PI / (180 * 3600))) * 100; // cm
+                seeing = inputValue; // Seeing at 500nm
+                const seeingRad = seeing * Math.PI / (180 * 3600);
+                const r0_500 = 0.976 * refWavelength / seeingRad;
+                r0 = r0_500 * Math.pow(wavelength / refWavelength, 6 / 5) * 100; // cm at operational wavelength
             } else {
-                r0 = inputValue;
-                seeing = (0.976 * wavelength / (r0 / 100)) * (180 * 3600) / Math.PI; // arcsec
+                r0 = inputValue; // r0 at operational wavelength
+                const r0_m = r0 / 100;
+                const r0_500 = r0_m / Math.pow(wavelength / refWavelength, 6 / 5);
+                seeing = (0.976 * refWavelength / r0_500) * (180 * 3600) / Math.PI; // arcsec at 500nm
             }
 
             dr0 = aperture / r0;
             
-            // 1-Axis Tip/Tilt RMS calculations
-            const tiptiltRad = Math.sqrt(0.18 * Math.pow(dr0, 5/3) * Math.pow(wavelength / (aperture / 100), 2));
+            // 1-Axis Tip/Tilt RMS calculations (Updated to 0.455 G-tilt coefficient)
+            const tiptiltRad = 0.455 * Math.pow(dr0, 5/6) * (wavelength / (aperture / 100));
             const tiptiltmRad = tiptiltRad * 1000;
             const tiptiltDeg = tiptiltRad * (180 / Math.PI);
             const tiptiltmDeg = tiptiltDeg * 1000;
@@ -283,5 +302,3 @@
     </script>
 </body>
 </html>
-
-
