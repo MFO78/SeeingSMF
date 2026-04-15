@@ -17,7 +17,6 @@
     </style>
 </head>
 <body class="bg-slate-950 text-slate-300 min-h-screen p-4 md:p-6 text-sm antialiased">
-
     <div class="max-w-5xl mx-auto flex flex-col h-full">
         
         <!-- Header & Navigation -->
@@ -63,13 +62,13 @@
                         </div>
                     </div>
 
-                    <!-- Atmospheric Condition -->
+                    <!-- Atmospheric Condition (Fixed labels to explicitly state 500nm reference) -->
                     <div class="grid grid-cols-3 gap-3 items-center">
                         <label for="input-type" class="text-slate-400 font-medium col-span-1">Atmosphere</label>
                         <div class="col-span-2 flex gap-2">
                             <select id="input-type" class="w-1/2 bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-2 py-1.5 focus:border-blue-500 focus:outline-none">
                                 <option value="seeing">Seeing @ 500nm (arcsec)</option>
-                                <option value="r0">Fried r₀ (cm)</option>
+                                <option value="r0">Fried r₀ @ 500nm (cm)</option>
                             </select>
                             <input type="number" id="input-value" value="2.0" step="0.1" class="w-1/2 bg-slate-950 text-slate-200 rounded-md border border-slate-700 px-3 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow">
                         </div>
@@ -119,8 +118,9 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
-                            <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Fried (r₀)</span>
+                            <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Fried r₀ <span class="normal-case">(500nm)</span></span>
                             <div id="r0-result" class="text-base text-slate-200 telemetry-value">-- cm</div>
+                            <div id="r0-op-result" class="text-[10px] text-slate-500 mt-1 telemetry-value">@ λ: -- cm</div>
                         </div>
                         <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
                             <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Seeing <span class="normal-case">(500nm)</span></span>
@@ -129,7 +129,7 @@
                     </div>
 
                     <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 shadow-inner">
-                        <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Turbulence Strength (D/r₀)</span>
+                        <span class="block text-slate-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Turbulence Strength (D/r₀_λ)</span>
                         <div id="dr0-result" class="text-lg text-slate-200 telemetry-value">--</div>
                     </div>
 
@@ -145,11 +145,11 @@
         <div id="view-reference" class="hidden bg-slate-900 rounded-xl border border-slate-800 p-6 shadow-lg animate-fade-in">
             <h3 class="text-base font-bold text-slate-200 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">Analytical Model Reference</h3>
             <div class="text-slate-400 space-y-4 leading-relaxed max-w-3xl">
-                <p>This engineering tool analyses atmospheric turbulence effects and adaptive optics performance for free-space optical communications (FSOC). The core logic dynamically converts between seeing conditions and the Fried parameter (r₀), computing the exact D/r₀ ratio for a specified telescope aperture.</p>
+                <p>This engineering tool analyses atmospheric turbulence effects and adaptive optics performance for free-space optical communications (FSOC). The core logic dynamically computes the exact D/r₀ ratio at the operational wavelength for a specified telescope aperture.</p>
                 
                 <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 my-4 text-emerald-500 font-mono text-xs overflow-x-auto shadow-inner">
-                    η ≈ η_max * exp(-½ C_J (D/r₀)^(5/3))<br><br>
-                    α = 0.455 · (D/r₀)^(5/6) · (λ/D)
+                    η ≈ η_max * exp(-½ C_J (D/r₀_λ)^(5/3))<br><br>
+                    α = 0.455 · (D/r₀_λ)^(5/6) · (λ/D)
                 </div>
 
                 <p><strong>Literature Validation:</strong> Coupling efficiency derivations strictly align with theoretical and experimental data from Wang et al. (2018), <em>"Performance analysis of an adaptive optics system for free-space optics communication through atmospheric turbulence"</em> (Scientific Reports).</p>
@@ -160,7 +160,7 @@
                 <ul class="list-disc pl-5 space-y-2 mt-2">
                     <li><strong>Wavelength (λ)</strong>: Typically 1550nm for European telecom standards, 808nm for wavefront sensing.</li>
                     <li><strong>Seeing</strong>: Atmospheric turbulence measured in arcseconds, strictly anchored to a <strong>500 nm</strong> reference wavelength.</li>
-                    <li><strong>r₀</strong>: Fried parameter defining the coherence length, calculated dynamically at the operational wavelength (λ) using standard <em>λ^(6/5)</em> scaling.</li>
+                    <li><strong>r₀ (500nm)</strong>: Reference Fried parameter. It is subsequently scaled to the operational wavelength using standard <em>λ^(6/5)</em> dependency prior to D/r₀ calculation.</li>
                     <li><strong>D</strong>: Telescope aperture diameter.</li>
                     <li><strong>J</strong>: Quantity of corrected Zernike polynomials.</li>
                     <li><strong>η_max</strong>: Maximum coupling efficiency (accounts for telescope central obscuration and fibre NA limits).</li>
@@ -176,18 +176,15 @@
 
         // Tab Navigation Logic
         function switchTab(tabId) {
-            // Hide all views
             document.getElementById('view-dashboard').classList.add('hidden');
             document.getElementById('view-reference').classList.add('hidden');
             
-            // Reset button styles
             const btnDash = document.getElementById('btn-dashboard');
             const btnRef = document.getElementById('btn-reference');
             
             btnDash.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-slate-200 hover:bg-slate-800 focus:outline-none";
             btnRef.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors text-slate-400 hover:text-slate-200 hover:bg-slate-800 focus:outline-none";
             
-            // Show active view and style active button
             if (tabId === 'dashboard') {
                 document.getElementById('view-dashboard').classList.remove('hidden');
                 btnDash.className = "px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white shadow-sm focus:outline-none";
@@ -199,7 +196,6 @@
 
         // Calculation Logic
         function attachRealTimeListeners() {
-            // Initialise state dynamically to prevent F5 refresh desync if browser caches select inputs
             const typeSelect = document.getElementById('input-type');
             isSeeingState = (typeSelect.value === 'seeing');
 
@@ -208,13 +204,11 @@
                 if (input.id === 'input-type') {
                     input.addEventListener('change', handleUnitToggle);
                 } else if (input.tagName === 'SELECT') {
-                    // Use 'change' instead of 'input' for robust cross-browser select handling
                     input.addEventListener('change', calculate);
                 } else {
                     input.addEventListener('input', calculate);
                 }
             });
-            // Initial calculation on load
             calculate();
         }
 
@@ -223,26 +217,23 @@
             const valueInput = document.getElementById('input-value');
             let currentVal = parseFloat(valueInput.value);
             
-            // Guard against NaN or mathematically invalid zero/negative turbulence limits
             if (isNaN(currentVal) || currentVal <= 0) return;
 
-            const wavelength = parseFloat(document.getElementById('wavelength').value) * parseFloat(document.getElementById('wavelength-unit').value);
-            const refWavelength = 500e-9; // Standard reference wavelength for seeing
+            const refWavelength = 500e-9; 
 
-            // Convert underlying numerical value to match the newly selected physical unit
+            // Convert strictly within the 500nm domain
             if (newType === 'r0' && isSeeingState) {
-                // Seeing @ 500nm (arcsec) -> r0 at operational wavelength (cm)
-                const seeing500Rad = currentVal * Math.PI / (180 * 3600);
-                const r0_500 = 0.976 * refWavelength / seeing500Rad;
-                const r0_op = r0_500 * Math.pow(wavelength / refWavelength, 6 / 5) * 100;
-                valueInput.value = r0_op.toFixed(2);
+                // Seeing (arcsec) -> r0 at 500nm (cm)
+                const seeingRad = currentVal * Math.PI / (180 * 3600);
+                const r0_500 = (0.976 * refWavelength / seeingRad) * 100;
+                valueInput.value = r0_500.toFixed(2);
                 isSeeingState = false;
             } else if (newType === 'seeing' && !isSeeingState) {
-                // r0 at operational wavelength (cm) -> Seeing @ 500nm (arcsec)
+                // r0 at 500nm (cm) -> Seeing (arcsec)
                 const r0_m = currentVal / 100;
-                const r0_500 = r0_m / Math.pow(wavelength / refWavelength, 6 / 5);
-                const seeing500 = (0.976 * refWavelength / r0_500) * (180 * 3600) / Math.PI;
-                valueInput.value = seeing500.toFixed(2);
+                const seeingRad = 0.976 * refWavelength / r0_m;
+                const seeingArcsec = seeingRad * (180 * 3600) / Math.PI;
+                valueInput.value = seeingArcsec.toFixed(2);
                 isSeeingState = true;
             }
             
@@ -257,50 +248,49 @@
             const zernike = parseFloat(document.getElementById('zernike').value);
             const etaMaxPercentage = parseFloat(document.getElementById('eta-max').value);
             
-            // Prevent NaN rendering during typing or field clearing
             if (isNaN(wavelength) || isNaN(inputValue) || inputValue <= 0 || isNaN(aperture) || isNaN(zernike) || isNaN(etaMaxPercentage)) {
                 return; 
             }
 
-            let r0, seeing, dr0;
-            const refWavelength = 500e-9; // Standard reference wavelength
+            let r0_500_cm, seeing;
+            const refWavelength = 500e-9; 
 
-            // Determine r0 (operational) and seeing (500nm) based on chosen input
+            // Establish baseline 500nm metrics
             if (inputType === 'seeing') {
-                seeing = inputValue; // Seeing at 500nm
+                seeing = inputValue; 
                 const seeingRad = seeing * Math.PI / (180 * 3600);
-                const r0_500 = 0.976 * refWavelength / seeingRad;
-                r0 = r0_500 * Math.pow(wavelength / refWavelength, 6 / 5) * 100; // cm at operational wavelength
+                r0_500_cm = (0.976 * refWavelength / seeingRad) * 100;
             } else {
-                r0 = inputValue; // r0 at operational wavelength
-                const r0_m = r0 / 100;
-                const r0_500 = r0_m / Math.pow(wavelength / refWavelength, 6 / 5);
-                seeing = (0.976 * refWavelength / r0_500) * (180 * 3600) / Math.PI; // arcsec at 500nm
+                r0_500_cm = inputValue; 
+                const r0_m = r0_500_cm / 100;
+                seeing = (0.976 * refWavelength / r0_m) * (180 * 3600) / Math.PI;
             }
 
-            dr0 = aperture / r0;
+            // Scale r0 to operational wavelength for internal physics calculations
+            const r0_op_cm = r0_500_cm * Math.pow(wavelength / refWavelength, 6 / 5);
+            const dr0_op = aperture / r0_op_cm;
             
-            // 1-Axis Tip/Tilt RMS calculations (Updated to 0.455 G-tilt coefficient)
-            const tiptiltRad = 0.455 * Math.pow(dr0, 5/6) * (wavelength / (aperture / 100));
+            // 1-Axis Tip/Tilt RMS
+            const tiptiltRad = 0.455 * Math.pow(dr0_op, 5/6) * (wavelength / (aperture / 100));
             const tiptiltmRad = tiptiltRad * 1000;
             const tiptiltDeg = tiptiltRad * (180 / Math.PI);
             const tiptiltmDeg = tiptiltDeg * 1000;
             const tiptiltArcsec = tiptiltDeg * 3600;
 
-            // Coupling efficiency calculation
+            // Coupling efficiency calculation (Wang et al.)
             const Cj = 0.3 / Math.pow(zernike, 0.7);
             const eta_max = etaMaxPercentage / 100; 
-            const coupling = eta_max * Math.exp(-0.5 * Cj * Math.pow(dr0, 5/3));
+            const coupling = eta_max * Math.exp(-0.5 * Cj * Math.pow(dr0_op, 5/3));
 
-            // DOM Updates - Formatting directly within the spans
-            document.getElementById('r0-result').textContent = `${r0.toFixed(2)} cm`;
+            // DOM Updates
+            document.getElementById('r0-result').textContent = `${r0_500_cm.toFixed(2)} cm`;
+            document.getElementById('r0-op-result').textContent = `@ ${document.getElementById('wavelength').value} ${document.getElementById('wavelength-unit').options[document.getElementById('wavelength-unit').selectedIndex].text}: ${r0_op_cm.toFixed(2)} cm`;
             document.getElementById('seeing-result').textContent = `${seeing.toFixed(2)} arcsec`;
-            document.getElementById('dr0-result').textContent = `${dr0.toFixed(2)}`;
+            document.getElementById('dr0-result').textContent = `${dr0_op.toFixed(2)}`;
             document.getElementById('tiptilt-result').textContent = `${tiptiltArcsec.toFixed(2)} arcsec (${tiptiltmDeg.toFixed(3)} mdeg, ${tiptiltmRad.toFixed(3)} mrad)`;
             document.getElementById('coupling-result').textContent = `${(coupling * 100).toFixed(1)}%`;
         }
 
-        // Initialize application logic
         window.onload = attachRealTimeListeners;
     </script>
 </body>
